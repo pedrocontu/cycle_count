@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Error {{ code }}{% endblock %}
+{% block content %}
+  <div class="card" style="text-align:center;">
+    <h1>{{ code }}</h1>
+    <p class="muted">{{ message }}</p>
+    <p><a class="btn ghost" href="{{ url_for('cc.dashboard') }}">Back to dashboard</a></p>
+  </div>
+{% endblock %}
