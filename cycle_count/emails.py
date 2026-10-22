@@ -2,11 +2,18 @@
 from html import escape as h
 
 from . import db, email_utils
-from .filters import PRIORITY_LABELS, plain_num as _fmt_num
+from .filters import PRIORITY_LABELS, fixed, plain_num as _fmt_num
 
 _TH = 'padding:.3rem .5rem; text-align:{align};'
 _TD = 'padding:.3rem .5rem; border-bottom:1px solid #e0e0e0;'
 _TD2 = 'padding:.25rem .5rem; border-bottom:1px solid #f0f0f0;'
+
+
+def _money(value):
+    """Values in currency: 2 decimals, like the count screen."""
+    if value is None:
+        return ''
+    return '0.00' if abs(value) < 0.005 else fixed(value, 2)
 
 
 def split_cc(cc_string):
@@ -138,10 +145,10 @@ def send_count_finished(rid, meta):
         lines.append(
             f'  {r["sl"]:<8} {_fmt_num(r["sys"]):>10} '
             f'{_fmt_num(r["cnt"]):>10} {_fmt_num(r["unit_var"]):>10} '
-            f'{_fmt_num(r["total_var"]):>14}')
+            f'{_money(r["total_var"]):>14}')
     lines.append(
         f'  {"TOTAL":<8} {_fmt_num(total_sys):>10} {_fmt_num(total_cnt):>10} '
-        f'{_fmt_num(total_var_units):>10} {_fmt_num(total_var_value):>14}')
+        f'{_fmt_num(total_var_units):>10} {_money(total_var_value):>14}')
     text = '\n'.join(lines)
 
     subject = (f'Re: [Cycle Count #{rid}] {req["part_number"]} — completed'
@@ -157,7 +164,7 @@ def send_count_finished(rid, meta):
         f'<td style="{_TD} text-align:right;">{h(_fmt_num(r["cnt"]))}</td>'
         f'<td style="{_TD} text-align:right;">{h(_fmt_num(r["unit_var"]))}</td>'
         f'<td style="{_TD} text-align:right; {_color(r["total_var"])}">'
-        f'{h(_fmt_num(r["total_var"]))}</td>'
+        f'{h(_money(r["total_var"]))}</td>'
         f'</tr>'
         for r in rows)
     sl_rows_html += (
@@ -167,7 +174,7 @@ def send_count_finished(rid, meta):
         f'<td style="padding:.3rem .5rem; text-align:right;">{h(_fmt_num(total_cnt))}</td>'
         f'<td style="padding:.3rem .5rem; text-align:right;">{h(_fmt_num(total_var_units))}</td>'
         f'<td style="padding:.3rem .5rem; text-align:right; {_color(total_var_value)}">'
-        f'{h(_fmt_num(total_var_value))}</td>'
+        f'{h(_money(total_var_value))}</td>'
         f'</tr>')
 
     feeder_html = ''

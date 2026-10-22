@@ -204,3 +204,9 @@ def test_filters():
         assert filters.localdt('2026-07-15T12:00:00') == '2026-07-15 13:00'
         assert filters.localdt(date(2026, 1, 1)) == '2026-01-01'
         assert filters.localdt(None) == '—' and filters.localdt('garbage') == 'garbage'
+
+
+def test_email_money_format():
+    from cycle_count.emails import _money
+    assert _money(124.616) == '124.62' and _money(-220.604) == '-220.60'
+    assert _money(-0.004) == '0.00' and _money(None) == '' and _money(0) == '0.00'
