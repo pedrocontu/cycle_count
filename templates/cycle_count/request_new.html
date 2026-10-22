@@ -1,0 +1,40 @@
+{% extends 'cycle_count/base.html' %}
+{% block title %}New count request{% endblock %}
+{% block content %}
+  <h1>New count request</h1>
+  <div class="card">
+    <form method="post" class="stacked">
+      {% csrf_token %}
+      <label for="part_number">Part number</label>
+      <input type="text" id="part_number" name="part_number" autofocus
+             autocapitalize="characters" autocorrect="off"
+             value="{{ form_data.part_number|default:'' }}">
+
+      <label for="count_date">Date of the count</label>
+      <input type="date" id="count_date" name="count_date"
+             value="{{ form_data.count_date|default:today }}">
+
+      <label for="reason">Reason for the count</label>
+      <textarea id="reason" name="reason"
+                placeholder="e.g. Discrepancy after physical inventory">{{ form_data.reason|default:'' }}</textarea>
+
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority">
+        <option value="">— select —</option>
+        <option value="1" {% if form_data.priority == '1' %}selected{% endif %}>1 — High</option>
+        <option value="2" {% if form_data.priority == '2' %}selected{% endif %}>2 — Medium</option>
+        <option value="3" {% if form_data.priority == '3' %}selected{% endif %}>3 — Low</option>
+      </select>
+
+      <label for="cc_emails">To include in CC (comma-separated emails)</label>
+      <input type="text" id="cc_emails" name="cc_emails"
+             placeholder="alice@x.com, bob@x.com"
+             value="{{ form_data.cc_emails|default:'' }}">
+
+      <div class="btn-row">
+        <button type="submit" class="btn">Create request</button>
+        <a class="btn secondary" href="{% url 'cycle_count:dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

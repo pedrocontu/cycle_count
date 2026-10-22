@@ -1,0 +1,67 @@
+{% load cc_tags %}
+<div class="card{% if r.requested_by_role == 'priority' %} priority-user{% endif %}">
+  <div class="row-item" style="margin-bottom:.5rem;">
+    {% if r.requested_by_role == 'priority' %}
+      <span class="priority-flag">Priority user</span>
+    {% endif %}
+    <span class="pill priority-{{ r.priority }}">
+      <span class="label">Priority</span>
+      <span class="val">{{ r.priority }} — {{ r.priority|priority_label }}</span>
+    </span>
+    <span class="pill status-{{ r.status }}">
+      <span class="label">Status</span>
+      <span class="val">{{ r.status|replace_underscores }}</span>
+    </span>
+    <span class="pill">
+      <span class="label">Date</span>
+      <span class="val">{{ r.count_date }}</span>
+    </span>
+    <span class="pill">
+      <span class="label">Req #</span>
+      <span class="val">{{ r.id }}</span>
+    </span>
+  </div>
+  <div style="font-size:1.15rem; font-weight:600; margin:.2rem 0;">
+    {{ r.part_number }}
+  </div>
+  {% if r.part_routes %}
+    <div class="card-routes" data-routes="{{ r.part_routes }}"
+         style="margin:.15rem 0 .45rem; display:flex; flex-wrap:wrap; gap:.25rem; align-items:center;">
+      <span class="muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.05em;">Routes</span>
+    </div>
+    <script>
+    (function(){
+      var el = document.currentScript.previousElementSibling;
+      el.getAttribute('data-routes').split('|').filter(Boolean).forEach(function(rt){
+        var s = document.createElement('span');
+        s.className = 'chip route';
+        s.textContent = rt;
+        el.appendChild(s);
+      });
+    })();
+    </script>
+  {% else %}
+    <div class="muted" style="font-size:.78rem; margin:.15rem 0 .45rem;">
+      Computing routes…
+    </div>
+  {% endif %}
+  <div class="muted" style="margin-bottom:.5rem;">{{ r.reason }}</div>
+  <div class="muted" style="font-size:.9rem;">
+    Requested by {{ r.requested_by_name }}
+    {% if r.assigned_to_name %}
+      <br>Assigned to {{ r.assigned_to_name }}
+    {% endif %}
+  </div>
+  <div class="btn-row">
+    {% if show_claim %}
+      <form method="post" action="{% url 'cycle_count:request_claim' rid=r.id %}"
+            style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn">Start count</button>
+      </form>
+    {% endif %}
+    {% if show_resume %}
+      <a class="btn" href="{% url 'cycle_count:count_screen' rid=r.id %}">{{ resume_label }}</a>
+    {% endif %}
+  </div>
+</div>

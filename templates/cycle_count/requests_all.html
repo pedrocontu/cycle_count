@@ -1,0 +1,475 @@
+{% extends 'cycle_count/base.html' %}
+{% load cc_tags %}
+{% block title %}All count requests{% endblock %}
+
+{% block extra_css %}
+  main { max-width: 1700px; }
+
+  .toolbar { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+              margin-bottom: 1.25rem; }
+  .toolbar h1 { margin: 0; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .btn.active { background: var(--accent-pressed); color: #fff;
+                          border-color: var(--accent-pressed); }
+
+  .stage-card { background: var(--card); border: 1px solid var(--border);
+                 border-radius: 14px; box-shadow: var(--shadow);
+                 margin-bottom: 1.25rem; overflow: hidden; }
+  .stage-card > header {
+    color: #fff; padding: .7rem 1rem;
+    display: flex; align-items: center; gap: .55rem;
+  }
+  .stage-card > header h2 { margin: 0; font-size: 1.05rem; color: #fff; }
+  .stage-card > header .count {
+    background: rgba(255,255,255,.18); color: #fff;
+    padding: .1rem .6rem; border-radius: 999px;
+    font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .stage-card.stage-pending  > header { background: #b26a00; }
+  .stage-card.stage-progress > header { background: #074a8c; }
+  .stage-card.stage-done     > header { background: #1a7f37; }
+  .stage-card.stage-reviewed > header { background: #0b3d91; }
+  .stage-card.stage-cancelled > header { background: #5a6573; }
+
+  table.resume { width: 100%; border-collapse: collapse; background: var(--card); }
+  table.resume th, table.resume td {
+    border-bottom: 1px solid var(--border); padding: .5rem .55rem;
+    text-align: left; vertical-align: middle; font-size: .9rem;
+  }
+  table.resume th {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); background: var(--tile);
+  }
+  table.resume td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.resume tbody tr.clickable { cursor: pointer; }
+  table.resume tbody tr.clickable:hover td { background: #f8fafc; }
+  table.resume tbody tr.clickable:active td { background: #eef3f8; }
+  table.resume a.req-link { color: var(--accent); text-decoration: none;
+                             font-weight: 600; }
+  table.resume tr.empty-row td { color: var(--muted); padding: 1rem;
+                                  font-style: italic; }
+
+  .row-actions { display: inline-flex; gap: .25rem; flex-wrap: nowrap; }
+  .row-actions form { display: inline; margin: 0; }
+  .row-actions button { min-height: 30px; padding: 0 .55rem; font-size: .78rem;
+                         border-radius: 6px; cursor: pointer;
+                         border: 1px solid var(--border); background: var(--tile);
+                         color: var(--text); }
+  .row-actions button:hover { background: #eef3f8; }
+  .row-actions button.danger { background: #fbe8e8; color: var(--bad);
+                                 border-color: #f3c2c2; }
+  .row-actions button.danger:hover { background: #f5d2d2; }
+  .row-actions button.good   { background: #eaf3ec; color: #1a7f37;
+                                 border-color: #c4e0ca; }
+  .row-actions button.good:hover { background: #d8ecdc; }
+{% endblock %}
+
+{% block content %}
+  <div class="toolbar">
+    <h1>All count requests</h1>
+    <input type="search" id="pn-filter"
+           placeholder="Filter by part number..."
+           autocomplete="off"
+           style="min-height:38px; padding:.3rem .65rem; min-width:240px;
+                  font-size:.95rem; border:1px solid var(--border);
+                  border-radius:8px;">
+    <div class="spacer"></div>
+    {# toggle_buttons #}
+    {% if status_filter == 'reviewed' %}
+      <a class="btn ghost active" href="{% url 'cycle_count:requests_all' %}">Hide Reviewed</a>
+    {% else %}
+      <a class="btn ghost" href="{% url 'cycle_count:requests_all' %}?status=reviewed">Show Reviewed</a>
+    {% endif %}
+    {% if status_filter == 'cancelled' %}
+      <a class="btn ghost active" href="{% url 'cycle_count:requests_all' %}">Hide Cancelled</a>
+    {% else %}
+      <a class="btn ghost" href="{% url 'cycle_count:requests_all' %}?status=cancelled">Show Cancelled</a>
+    {% endif %}
+  </div>
+
+  {# ===================== KANBAN VIEW ===================== #}
+  {% if view == 'kanban' %}
+
+    <div class="stage-card stage-pending">
+      <header>
+        <h2>Pending</h2>
+        <span class="count">{{ pending|length }}</span>
+      </header>
+      <table class="resume">
+        <thead>
+          <tr>
+            <th>#</th><th>Part</th><th>Requested by</th>
+            <th>Date</th><th>Pri</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in pending %}
+            <tr class="clickable" data-href="{% url 'cycle_count:count_screen' rid=r.id %}"
+                data-part="{{ r.part_number }}">
+              <td><a class="req-link" href="{% url 'cycle_count:count_screen' rid=r.id %}">#{{ r.id }}</a></td>
+              <td>
+                {% if r.requested_by_role == 'priority' %}
+                  <span class="priority-flag" style="margin-right:.35rem;">P</span>
+                {% endif %}
+                <strong>{{ r.part_number }}</strong>
+              </td>
+              <td>{{ r.requested_by_name }}</td>
+              <td>{{ r.count_date }}</td>
+              <td><span class="pill priority-{{ r.priority }}">{{ r.priority }}</span></td>
+            </tr>
+          {% empty %}
+            <tr class="empty-row"><td colspan="5">No pending requests.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage-card stage-progress">
+      <header>
+        <h2>In Progress</h2>
+        <span class="count">{{ in_progress|length }}</span>
+      </header>
+      <table class="resume">
+        <thead>
+          <tr>
+            <th>#</th><th>Part</th><th>Requested by</th>
+            <th>Date</th><th>Counter</th><th>Pri</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in in_progress %}
+            <tr class="clickable" data-href="{% url 'cycle_count:count_screen' rid=r.id %}"
+                data-part="{{ r.part_number }}">
+              <td><a class="req-link" href="{% url 'cycle_count:count_screen' rid=r.id %}">#{{ r.id }}</a></td>
+              <td>
+                {% if r.requested_by_role == 'priority' %}
+                  <span class="priority-flag" style="margin-right:.35rem;">P</span>
+                {% endif %}
+                <strong>{{ r.part_number }}</strong>
+              </td>
+              <td>{{ r.requested_by_name }}</td>
+              <td>{{ r.count_date }}</td>
+              <td>{{ r.assigned_to_name|default:'—' }}</td>
+              <td><span class="pill priority-{{ r.priority }}">{{ r.priority }}</span></td>
+            </tr>
+          {% empty %}
+            <tr class="empty-row"><td colspan="6">No counts in progress.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stage-card stage-done">
+      <header>
+        <h2>Done</h2>
+        <span class="count">{{ done|length }}</span>
+      </header>
+      <table class="resume">
+        <thead>
+          <tr>
+            <th>#</th><th>Part</th><th>Date</th><th>Pri</th>
+            <th>Requester</th><th>Counter</th>
+            <th class="num">QOH</th><th class="num">Counted</th>
+            <th class="num">Delta</th>
+            <th class="num">Unit cost</th><th class="num">Valor delta</th>
+            <th>Completed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="done-tbody">
+          {% for r in done %}
+            {% with d=r.delta_total|default:0 v=r.valor_delta|default:0 %}
+            <tr class="clickable" data-href="{% url 'cycle_count:count_screen' rid=r.id %}"
+                data-rid="{{ r.id }}" data-part="{{ r.part_number }}">
+              <td><a class="req-link" href="{% url 'cycle_count:count_screen' rid=r.id %}">#{{ r.id }}</a></td>
+              <td>
+                {% if r.requested_by_role == 'priority' %}
+                  <span class="priority-flag" style="margin-right:.35rem;">P</span>
+                {% endif %}
+                <strong>{{ r.part_number }}</strong>
+              </td>
+              <td>{{ r.count_date }}</td>
+              <td><span class="pill priority-{{ r.priority }}">{{ r.priority }}</span></td>
+              <td>{{ r.requested_by_name }}</td>
+              <td>{{ r.assigned_to_name|default:'—' }}</td>
+              <td class="num">{{ r.sys_total|default:0|plain_num }}</td>
+              <td class="num">{{ r.cnt_total|default:0|plain_num }}</td>
+              <td class="num"
+                  style="color:{% if d > 0 %}var(--good){% elif d < 0 %}var(--bad){% else %}var(--muted){% endif %};
+                         font-weight:{% if d != 0 %}700{% else %}400{% endif %};">
+                {% if d > 0 %}+{% endif %}{{ d|plain_num }}
+              </td>
+              <td class="num">
+                {% if r.unit_cost %}{{ r.unit_cost|floatformat:5 }}
+                {% else %}<span class="muted">—</span>{% endif %}
+              </td>
+              <td class="num"
+                  style="color:{% if v > 0.005 %}var(--good){% elif v < -0.005 %}var(--bad){% else %}var(--muted){% endif %};
+                         font-weight:{% if v > 0.005 or v < -0.005 %}700{% else %}400{% endif %};">
+                {% if v > 0.005 %}+{% endif %}{{ v|floatformat:2 }}
+              </td>
+              <td>{{ r.completed_at|default:'—' }}</td>
+              <td>
+                {% if cc_user.role == 'admin' %}
+                  <form class="row-actions review-form" data-rid="{{ r.id }}"
+                        data-review-url="{% url 'cycle_count:request_review' rid=r.id %}"
+                        onsubmit="return false;">
+                    {% csrf_token %}
+                    <button type="submit" name="outcome" value="adjust"
+                            class="good" title="Reviewed / Adjust">Adjust</button>
+                    <button type="submit" name="outcome" value="not_adjust"
+                            title="Reviewed / Not Adjust">Not Adj.</button>
+                    <button type="submit" name="outcome" value="recount"
+                            class="danger"
+                            title="Send back to Open requests">Recount</button>
+                  </form>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr class="empty-row"><td colspan="13">No completed counts.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {# ===================== REVIEWED VIEW ===================== #}
+  {% elif view == 'reviewed' %}
+    <div class="stage-card stage-reviewed">
+      <header>
+        <h2>Reviewed</h2>
+        <span class="count">{{ rows|length }}</span>
+      </header>
+      <table class="resume">
+        <thead>
+          <tr>
+            <th>#</th><th>Part</th><th>Date</th><th>Pri</th>
+            <th>Requester</th><th>Counter</th>
+            <th class="num">QOH</th><th class="num">Counted</th>
+            <th class="num">Delta</th>
+            <th class="num">Unit cost</th><th class="num">Valor delta</th>
+            <th>Completed</th>
+            <th>Outcome</th><th>Reviewed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            {% with d=r.delta_total|default:0 v=r.valor_delta|default:0 %}
+            <tr class="clickable" data-href="{% url 'cycle_count:count_screen' rid=r.id %}"
+                data-rid="{{ r.id }}" data-part="{{ r.part_number }}">
+              <td><a class="req-link" href="{% url 'cycle_count:count_screen' rid=r.id %}">#{{ r.id }}</a></td>
+              <td>
+                {% if r.requested_by_role == 'priority' %}
+                  <span class="priority-flag" style="margin-right:.35rem;">P</span>
+                {% endif %}
+                <strong>{{ r.part_number }}</strong>
+              </td>
+              <td>{{ r.count_date }}</td>
+              <td><span class="pill priority-{{ r.priority }}">{{ r.priority }}</span></td>
+              <td>{{ r.requested_by_name }}</td>
+              <td>{{ r.assigned_to_name|default:'—' }}</td>
+              <td class="num">{{ r.sys_total|default:0|plain_num }}</td>
+              <td class="num">{{ r.cnt_total|default:0|plain_num }}</td>
+              <td class="num"
+                  style="color:{% if d > 0 %}var(--good){% elif d < 0 %}var(--bad){% else %}var(--muted){% endif %};
+                         font-weight:{% if d != 0 %}700{% else %}400{% endif %};">
+                {% if d > 0 %}+{% endif %}{{ d|plain_num }}
+              </td>
+              <td class="num">
+                {% if r.unit_cost %}{{ r.unit_cost|floatformat:5 }}
+                {% else %}<span class="muted">—</span>{% endif %}
+              </td>
+              <td class="num"
+                  style="color:{% if v > 0.005 %}var(--good){% elif v < -0.005 %}var(--bad){% else %}var(--muted){% endif %};
+                         font-weight:{% if v > 0.005 or v < -0.005 %}700{% else %}400{% endif %};">
+                {% if v > 0.005 %}+{% endif %}{{ v|floatformat:2 }}
+              </td>
+              <td>{{ r.completed_at|default:'—' }}</td>
+              <td>
+                {% if r.review_outcome == 'adjust' %}
+                  <span class="pill status-done">Adjust</span>
+                {% elif r.review_outcome == 'not_adjust' %}
+                  <span class="pill status-cancelled">Not Adjust</span>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ r.reviewed_at|default:'—' }}</td>
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr class="empty-row"><td colspan="14">No reviewed counts yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {# ===================== CANCELLED VIEW ===================== #}
+  {% elif view == 'cancelled' %}
+    {% if cc_user.role == 'admin' and rows %}
+      <form method="post"
+            action="{% url 'cycle_count:request_delete_all_cancelled' %}"
+            style="margin-bottom:1rem;"
+            onsubmit="return confirm('Permanently delete ALL cancelled requests? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn danger">
+          Delete all cancelled ({{ rows|length }})
+        </button>
+      </form>
+    {% endif %}
+
+    <div class="stage-card stage-cancelled">
+      <header>
+        <h2>Cancelled</h2>
+        <span class="count">{{ rows|length }}</span>
+      </header>
+      <table class="resume">
+        <thead>
+          <tr>
+            <th>#</th><th>Part</th><th>Requested by</th>
+            <th>Date</th><th>Pri</th>
+            {% if cc_user.role == 'admin' %}<th>Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr data-part="{{ r.part_number }}">
+              <td>#{{ r.id }}</td>
+              <td><strong>{{ r.part_number }}</strong></td>
+              <td>{{ r.requested_by_name }}</td>
+              <td>{{ r.count_date }}</td>
+              <td><span class="pill priority-{{ r.priority }}">{{ r.priority }}</span></td>
+              {% if cc_user.role == 'admin' %}
+                <td>
+                  <div class="row-actions">
+                    <form method="post" action="{% url 'cycle_count:request_delete' rid=r.id %}"
+                          onsubmit="return confirm('Permanently delete request #{{ r.id }}?');">
+                      {% csrf_token %}
+                      <button class="danger">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr class="empty-row">
+              <td colspan="{% if cc_user.role == 'admin' %}6{% else %}5{% endif %}">
+                No cancelled requests.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('table.resume tbody tr.clickable').forEach(tr => {
+    tr.addEventListener('dblclick', e => {
+      if (e.target.closest('a,button,form')) return;
+      if (tr.dataset.href) window.location.href = tr.dataset.href;
+    });
+  });
+
+  (function () {
+    const input = document.getElementById('pn-filter');
+    if (!input) return;
+    const stages = Array.from(document.querySelectorAll('.stage-card'))
+      .map(card => {
+        const tbody = card.querySelector('tbody');
+        const badge = card.querySelector('header .count');
+        const rows = tbody
+          ? Array.from(tbody.querySelectorAll('tr')).filter(
+              tr => !tr.classList.contains('empty-row'))
+          : [];
+        return {card, tbody, badge, rows, total: rows.length};
+      });
+
+    function apply() {
+      const q = input.value.trim().toUpperCase();
+      stages.forEach(s => {
+        let visible = 0;
+        s.rows.forEach(tr => {
+          const part = (tr.dataset.part || '').toUpperCase();
+          const show = !q || part.includes(q);
+          tr.style.display = show ? '' : 'none';
+          if (show) visible++;
+        });
+        if (s.badge) {
+          s.badge.textContent = q ? (visible + '/' + s.total) : s.total;
+        }
+        let notice = s.tbody && s.tbody.querySelector('tr.filter-empty');
+        if (s.tbody && q && visible === 0 && s.total > 0) {
+          if (!notice) {
+            notice = document.createElement('tr');
+            notice.className = 'filter-empty empty-row';
+            const td = document.createElement('td');
+            td.colSpan = (s.tbody.querySelector('tr')
+                          ? s.tbody.querySelector('tr').children.length : 1);
+            td.textContent = 'No rows match the filter.';
+            notice.appendChild(td);
+            s.tbody.appendChild(notice);
+          }
+        } else if (notice) {
+          notice.remove();
+        }
+      });
+    }
+    input.addEventListener('input', apply);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { input.value = ''; apply(); }
+    });
+  })();
+
+  document.querySelectorAll('form.review-form').forEach(form => {
+    form.querySelectorAll('button[type=submit]').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.preventDefault();
+        const outcome = btn.value;
+        if (outcome === 'recount' &&
+            !confirm('Send this count back for recount? Any counted quantities will be cleared.')) {
+          return;
+        }
+        const reviewUrl = form.dataset.reviewUrl;
+        form.querySelectorAll('button').forEach(b => b.disabled = true);
+        try {
+          const fd = new FormData();
+          fd.set('outcome', outcome);
+          fd.set('csrfmiddlewaretoken', getCsrfToken());
+          const res = await fetch(reviewUrl, {
+            method: 'POST', body: fd,
+            headers: {'X-Requested-With': 'fetch'},
+            credentials: 'same-origin'
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const tr = form.closest('tr');
+          const tbody = tr && tr.parentNode;
+          if (tr) tr.remove();
+          const header = document.querySelector('.stage-card.stage-done > header .count');
+          if (header) {
+            const n = Math.max(0, parseInt(header.textContent, 10) - 1);
+            header.textContent = n;
+          }
+          if (tbody && !tbody.querySelector('tr')) {
+            const empty = document.createElement('tr');
+            empty.className = 'empty-row';
+            const td = document.createElement('td');
+            td.colSpan = 13;
+            td.textContent = 'No completed counts.';
+            empty.appendChild(td);
+            tbody.appendChild(empty);
+          }
+        } catch (err) {
+          form.querySelectorAll('button').forEach(b => b.disabled = false);
+          alert('Failed to apply review: ' + err.message);
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}
