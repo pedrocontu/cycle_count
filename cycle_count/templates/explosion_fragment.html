@@ -1,0 +1,140 @@
+{% if error %}
+  <div class="usage-meta" style="color: var(--bad);">{{ error }}</div>
+{% elif not route_groups %}
+  <div class="usage-meta">
+    {% if active_refs %}
+      No parent assemblies match the reference code{% if active_refs|length != 1 %}s{% endif %}:
+      {% for r in active_refs %}<span class="chip route">{{ r }}</span>{% endfor %}
+    {% else %}
+      No parent assemblies found in BOM.
+    {% endif %}
+  </div>
+{% else %}
+  <div id="expl-routes-hint" style="display:none;"
+       data-routes="{{ all_routes|join('|') }}"></div>
+
+  <div style="padding:.4rem 1rem .8rem;">
+    {% if active_refs %}
+      <div class="usage-meta" style="display:flex; align-items:center;
+           gap:.35rem; flex-wrap:wrap;">
+        <span style="text-transform:uppercase; font-size:.7rem;
+              letter-spacing:.04em;">Filtered by</span>
+        {% for r in active_refs %}<span class="chip route">{{ r }}</span>{% endfor %}
+        <span class="muted">— {{ route_groups|length }} route{% if route_groups|length != 1 %}s{% endif %}</span>
+      </div>
+    {% endif %}
+
+    {% for rg in route_groups %}
+      <details class="expl-route" open
+               style="background:var(--card); border:1px solid var(--border);
+                      border-radius:12px; margin-bottom:.85rem; overflow:hidden;">
+        <summary style="list-style:none; cursor:pointer; min-height:48px;
+                 padding:.6rem 1rem; display:flex; align-items:center;
+                 gap:.55rem; flex-wrap:wrap; background:#eef3f8;
+                 touch-action:manipulation;">
+          <span class="chip route" style="font-size:.95rem;
+                padding:.2rem .65rem;">{{ rg.route }}</span>
+          <span class="muted" style="font-size:.85rem;">
+            — {{ rg.tops|length }} parent{% if rg.tops|length != 1 %}s{% endif %}
+          </span>
+          <span class="expl-caret" style="margin-left:auto;">▾</span>
+        </summary>
+
+        <div style="padding:.4rem .55rem .65rem;">
+          {% for grp in rg.tops %}
+            <details class="expl-group" data-top="{{ grp.top }}"
+                     style="background: var(--tile);
+                     border:1px solid var(--border); border-radius:10px;
+                     margin-bottom:.5rem; overflow:hidden;">
+              <summary style="list-style:none; cursor:pointer; min-height:48px;
+                       padding:.55rem .85rem; display:flex; align-items:center;
+                       gap:.5rem; flex-wrap:wrap; touch-action:manipulation;">
+                <strong style="font-size:1rem;">{{ grp.top }}</strong>
+                {% for m in grp.models %}<span class="chip">{{ m }}</span>{% else %}
+                  <span class="muted" style="font-size:.85rem;">— no model in REF CODES —</span>
+                {% endfor %}
+                <span class="muted" style="font-size:.85rem; margin-left:auto;">
+                  {{ grp.paths|length }} path{% if grp.paths|length != 1 %}s{% endif %}
+                </span>
+                <span class="expl-caret">▸</span>
+              </summary>
+
+              <div style="border-top:1px solid var(--border); padding:.4rem 0;
+                          background:var(--card);">
+                {% if not grp.merged %}
+                  <div class="usage-meta">
+                    Direct top-level — no intermediate level to count.
+                  </div>
+                {% else %}
+                  <div class="usage-table-wrap">
+                    <table class="usage">
+                      <thead>
+                        <tr>
+                          <th>Part</th>
+                          <th class="num">Qty / per (merged)</th>
+                          <th class="num">Count</th>
+                          <th class="num">Contribution</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for m in grp.merged %}
+                          <tr class="expl-row"
+                              data-top="{{ grp.top }}"
+                              data-part="{{ m.part }}"
+                              data-qty-per="{{ m.total_cum }}">
+                            <td>
+                              <strong>{{ m.part }}</strong>
+                              {% if m.chains|length > 1 %}
+                                <details style="margin-top:.2rem;">
+                                  <summary class="muted"
+                                           style="cursor:pointer; font-size:.78rem;
+                                                  list-style:none;">
+                                    {{ m.chains|length }} contributing chains
+                                  </summary>
+                                  <ul style="margin:.25rem 0 0; padding-left:1rem;
+                                             font-size:.78rem; color:var(--muted);">
+                                    {% for c in m.chains %}
+                                      <li>
+                                        <span style="font-variant-numeric:tabular-nums;">
+                                          {{ c.cum|plain_num }}×
+                                        </span>
+                                        {{ c.path_str }}
+                                      </li>
+                                    {% endfor %}
+                                  </ul>
+                                </details>
+                              {% endif %}
+                            </td>
+                            <td class="num">{{ (m.total_cum or 0)|plain_num }}</td>
+                            <td class="num">
+                              <input type="number" step="any" inputmode="decimal"
+                                     class="expl-qty"
+                                     style="width:90px; min-height:40px;
+                                            text-align:right; font-weight:600;
+                                            border:1px solid var(--border);
+                                            border-radius:6px; padding:.3rem .4rem;">
+                            </td>
+                            <td class="num expl-subtotal" data-subtotal>—</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% endif %}
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+
+    <div style="display:flex; align-items:center; justify-content:flex-end;
+                gap:.6rem; padding:.5rem .25rem 0;">
+      <span class="muted" style="text-transform:uppercase; font-size:.75rem;
+            letter-spacing:.05em;">Total → P105 (Σ count × cum.)</span>
+      <span id="expl-total"
+            style="font-weight:700; font-size:1.1rem;
+                   font-variant-numeric:tabular-nums;">0</span>
+    </div>
+  </div>
+{% endif %}

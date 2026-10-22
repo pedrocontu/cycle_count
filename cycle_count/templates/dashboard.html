@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% from '_request_card.html' import request_card with context %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <h1>Welcome, {{ cc_user.full_name }}</h1>
+  <div id="poll-indicator"
+       data-pending-ids="{{ pending_ids|join(',') }}"
+       data-mine-ids="{{ mine_ids|join(',') }}"
+       data-awaiting-ids="{{ awaiting_ids|join(',') }}"
+       style="display:none;"></div>
+
+  {% if mine is not none %}
+    <h2>My active counts</h2>
+    {% for r in mine %}
+      {{ request_card(r, resume_label='Resume count') }}
+    {% else %}
+      <p class="empty">No counts in progress.</p>
+    {% endfor %}
+  {% endif %}
+
+  {% if pending is not none %}
+    <h2>Pending requests {% if cc_user.role == 'cycle_counter' %}— claim to start{% endif %}</h2>
+    {% for r in pending %}
+      {{ request_card(r, show_claim=(cc_user.role == 'cycle_counter')) }}
+    {% else %}
+      <p class="empty">No pending requests.</p>
+    {% endfor %}
+  {% endif %}
+
+  {% if other_in_progress is not none %}
+    <h2>In progress</h2>
+    {% for r in other_in_progress %}
+      {{ request_card(r, resume_label='View count') }}
+    {% else %}
+      <p class="empty">Nothing in progress.</p>
+    {% endfor %}
+  {% endif %}
+
+  {% if my_requests is not none %}
+    <h2>My requests</h2>
+    <p><a class="btn" href="{{ url_for('cc.request_new') }}">+ New count request</a></p>
+    {% for r in my_requests %}
+      {{ request_card(r) }}
+    {% else %}
+      <p class="empty">You haven't submitted any requests yet.</p>
+    {% endfor %}
+  {% endif %}
+
+  <div id="poll-status"
+       style="position:fixed; bottom:.65rem; right:.65rem;
+              padding:.3rem .65rem; font-size:.75rem; border-radius:999px;
+              background:#1f2933; color:#c4ccd6; opacity:.75; z-index:40;
+              pointer-events:none;">live</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const ind = document.getElementById('poll-indicator');
+  if (!ind) return;
+  const status = document.getElementById('poll-status');
+  function asSet(csv) {
+    return new Set((csv || '').split(',').map(s => s.trim()).filter(Boolean));
+  }
+  function same(a, b) {
+    if (a.size !== b.size) return false;
+    for (const x of a) if (!b.has(String(x))) return false;
+    return true;
+  }
+  const basePending  = asSet(ind.dataset.pendingIds);
+  const baseMine     = asSet(ind.dataset.mineIds);
+  const baseAwaiting = asSet(ind.dataset.awaitingIds);
+
+  let inFlight = false;
+  async function poll() {
+    if (inFlight) return;
+    if (document.visibilityState === 'hidden') return;
+    inFlight = true;
+    try {
+      const res = await fetch({{ url_for('cc.api_dashboard')|tojson }},
+                              {credentials: 'same-origin', cache: 'no-store'});
+      if (res.redirected || !res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const newPending  = new Set((data.pending  || []).map(String));
+      const newMine     = new Set((data.mine     || []).map(String));
+      const newAwaiting = new Set((data.awaiting || []).map(String));
+      if (!same(basePending, newPending)
+          || !same(baseMine, newMine)
+          || !same(baseAwaiting, newAwaiting)) {
+        if (status) status.textContent = 'updating…';
+        window.location.reload();
+        return;
+      }
+      if (status) { status.textContent = 'live'; status.style.opacity = '.55'; }
+    } catch (err) {
+      if (status) {
+        status.textContent = 'offline';
+        status.style.opacity = '.4';
+      }
+    } finally {
+      inFlight = false;
+    }
+  }
+  setInterval(poll, 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') poll();
+  });
+})();
+</script>
+{% endblock %}

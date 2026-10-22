@@ -1,0 +1,1388 @@
+{% extends 'base.html' %}
+{% block title %}Count #{{ req.id }} — {{ req.part_number }}{% endblock %}
+
+{% block extra_css %}
+  .delta-pos { color: var(--good); font-weight: 700; }
+  .delta-neg { color: var(--bad);  font-weight: 700; }
+  .delta-zero { color: var(--muted); }
+
+  .part-head { display: flex; flex-wrap: wrap; gap: .5rem .8rem;
+               align-items: center; margin-bottom: .75rem; }
+  .part-desc { font-size: .95rem; color: var(--muted); margin: .25rem 0 1rem; }
+
+  .totals { display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: .55rem; margin-bottom: 1.25rem; }
+  .totals .tile { background: var(--tile); border: 1px solid var(--border);
+                  border-radius: 12px; padding: .7rem .85rem; }
+  .totals .label { font-size: .75rem; text-transform: uppercase;
+                   letter-spacing: .05em; color: var(--muted); }
+  .totals .val { font-size: 1.45rem; font-weight: 700;
+                 font-variant-numeric: tabular-nums; }
+  .totals .tile.qoh    { background: #eef3f8; }
+  .totals .tile.desvio { background: #fff4e0; }
+
+  .sl-card { background: var(--card); border: 1px solid var(--border);
+             border-radius: 14px; box-shadow: var(--shadow);
+             padding: .9rem 1rem; margin-bottom: .85rem; position: relative; }
+  .sl-card .delete-loc { position: absolute; top: .55rem; right: .55rem; }
+  .sl-card .delete-loc button { background: transparent; border: none;
+                                color: var(--bad); font-size: 1rem;
+                                cursor: pointer; padding: .35rem .55rem;
+                                border-radius: 8px; min-height: 36px; }
+  .sl-card .delete-loc button:hover { background: #fbe8e8; }
+  .sl-header { display: grid;
+               grid-template-columns: minmax(140px, 1.2fr)
+                                      minmax(120px, 1fr)
+                                      minmax(150px, 1.4fr)
+                                      minmax(110px, 1fr)
+                                      minmax(110px, 1fr)
+                                      minmax(110px, 1fr);
+               gap: .6rem; align-items: end; }
+  .sl-header .h-label { font-size: .72rem; text-transform: uppercase;
+                        letter-spacing: .05em; color: var(--muted);
+                        margin-bottom: .15rem; }
+  .sl-header .h-val { font-size: 1.15rem; font-weight: 700;
+                      font-variant-numeric: tabular-nums; }
+  .sl-header input.qty { font-size: 1.2rem; font-weight: 600; text-align: right;
+                          min-height: 48px; }
+  .sl-desc { color: var(--muted); font-size: .85rem; margin-top: .35rem; }
+
+  @media (max-width: 820px) {
+    .sl-header { grid-template-columns: 1fr 1fr 1fr; }
+  }
+  @media (max-width: 520px) {
+    .sl-header { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    h1 { font-size: 1.3rem; }
+    .part-head { gap: .35rem .5rem; margin-bottom: .4rem; }
+    .pill { font-size: .8rem; padding: .2rem .55rem; }
+    .pill .label { font-size: .68rem; }
+    .totals { gap: .4rem; }
+    .totals .tile { padding: .55rem .65rem; }
+    .totals .val { font-size: 1.2rem; }
+    .totals .label { font-size: .68rem; }
+    .sl-card { padding: .7rem .75rem; margin-bottom: .65rem; }
+    .sl-card .delete-loc { top: .35rem; right: .35rem; }
+    .sl-card .delete-loc button { font-size: .85rem; padding: .25rem .4rem; }
+    .sl-header { grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .sl-header > div:nth-child(3) { grid-column: 1 / -1; }
+    .sl-header .h-label { font-size: .65rem; }
+    .sl-header .h-val { font-size: 1.05rem; }
+    .sl-header input.qty { font-size: 1.1rem; min-height: 44px; }
+    details.type-tree > summary,
+    details.st-row > summary,
+    details.bin-row > summary { font-size: .92rem; }
+    ul.bins { margin-left: .7rem; }
+    ul.hus { margin-left: 1rem; padding: 0; }
+    ul.hus li { padding: .4rem .5rem; font-size: .85rem; }
+    .hu-line { row-gap: .15rem; }
+    .hu-line .hu-qty { width: 80px; min-height: 38px; }
+    .notes-card label { font-size: .68rem; }
+    textarea, input[type=text], input[type=number], select { font-size: .95rem; }
+    table.usage th, table.usage td { padding: .35rem .4rem; font-size: .82rem; }
+    table.usage input.usage-qty,
+    table.usage input.expl-qty { width: 70px !important; min-height: 36px; }
+    .chip { font-size: .72rem; padding: .08rem .4rem; }
+    .btn { min-height: 44px; padding: 0 .9rem; font-size: .95rem; }
+    .btn-row { gap: .4rem; }
+  }
+  @media (max-width: 360px) {
+    body { font-size: 16px; }
+    .sl-header { grid-template-columns: 1fr; }
+    .sl-header > div:nth-child(3) { grid-column: 1; }
+  }
+
+  details.pou-block { margin-top: .65rem; border-top: 1px solid var(--border);
+                      padding-top: .55rem; }
+  details.pou-block > summary {
+    list-style: none; cursor: pointer; min-height: 44px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--accent); font-weight: 600;
+    touch-action: manipulation; padding: .25rem 0;
+  }
+  details.pou-block > summary::-webkit-details-marker { display: none; }
+  details.pou-block > summary::after { content: "▾"; font-size: 1rem; }
+  details.pou-block[open] > summary::after { content: "▴"; }
+
+  details.pou-group { margin: .35rem 0 .25rem .25rem;
+                       border: 1px solid var(--border); border-radius: 8px;
+                       background: var(--tile); overflow: hidden; }
+  details.pou-group > summary {
+    list-style: none; cursor: pointer; min-height: 40px;
+    display: flex; align-items: center; gap: .5rem;
+    padding: .4rem .6rem; color: var(--accent);
+    touch-action: manipulation;
+  }
+  details.pou-group > summary::-webkit-details-marker { display: none; }
+  details.pou-group > summary::after { content: "▸"; margin-left: auto;
+                                        color: var(--accent);
+                                        transition: transform .15s ease; }
+  details.pou-group[open] > summary::after { transform: rotate(90deg); }
+  details.pou-group table.pou-table { background: var(--card); }
+
+  .unmapped-pou-card { border-color: #f3c2c2; background: #fff7f7; }
+  .pou-map-list { margin-top: .65rem; border-top: 1px solid var(--border);
+                  padding-top: .55rem; }
+  .pou-map-row { display: flex; gap: .55rem; align-items: center;
+                 flex-wrap: wrap; margin-bottom: .4rem; }
+  .pou-map-row .pou-map-name { min-width: 110px; }
+  .pou-map-row select { min-height: 40px; padding: .25rem .45rem;
+                        border: 1px solid var(--border); border-radius: 6px; }
+  .pou-map-row .btn { min-height: 40px; padding: 0 .9rem; }
+  @media (max-width: 480px) {
+    .pou-map-row { gap: .35rem; }
+    .pou-map-row .pou-map-name { min-width: 90px; }
+  }
+  table.pou-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  table.pou-table th, table.pou-table td {
+    border-bottom: 1px solid var(--border); padding: .35rem .5rem;
+    text-align: left; vertical-align: top;
+  }
+  table.pou-table th { font-size: .68rem; text-transform: uppercase;
+                       letter-spacing: .04em; color: var(--muted);
+                       background: var(--tile); font-weight: 600; }
+  table.pou-table td.num, table.pou-table th.num {
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 480px) {
+    table.pou-table th, table.pou-table td { padding: .3rem .35rem; font-size: .82rem; }
+  }
+
+  details.type-tree { margin-top: .7rem; border-top: 1px solid var(--border);
+                       padding-top: .55rem; }
+  details.type-tree > summary {
+    list-style: none; cursor: pointer; min-height: 44px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--accent); font-weight: 600;
+    touch-action: manipulation; padding: .25rem 0;
+  }
+  details.type-tree > summary::-webkit-details-marker { display: none; }
+  details.type-tree > summary::after { content: "▾"; font-size: 1rem; }
+  details.type-tree[open] > summary::after { content: "▴"; }
+
+  details.st-row { margin: .35rem 0 .25rem 1rem; }
+  details.st-row > summary {
+    list-style: none; cursor: pointer; min-height: 40px;
+    display: flex; align-items: center; gap: .5rem;
+    padding: .35rem .55rem; border-radius: 8px;
+    background: var(--tile); color: var(--accent); font-weight: 600;
+  }
+  details.st-row > summary::-webkit-details-marker { display: none; }
+  details.st-row > summary::after { content: "▸"; margin-left: auto;
+                                     transition: transform .15s ease; }
+  details.st-row[open] > summary::after { transform: rotate(90deg); }
+  details.st-row .st-desc { color: var(--muted); font-weight: 400;
+                             font-size: .85rem; margin-left: .3rem; }
+
+  ul.bins { list-style: none; margin: .35rem 0 .25rem 1rem; padding: 0;
+            display: flex; flex-direction: column; gap: .3rem; }
+  ul.bins li { background: #fff; border: 1px solid var(--border);
+                border-radius: 8px; padding: .5rem .65rem; font-size: .92rem;
+                display: flex; gap: .65rem; align-items: flex-start; }
+  ul.bins li .bin-check {
+    flex-shrink: 0; min-width: 28px; min-height: 28px;
+    transform: scale(1.4); margin-right: .35rem; cursor: pointer;
+  }
+  details.st-row .st-check {
+    flex-shrink: 0; min-width: 24px; min-height: 24px;
+    transform: scale(1.3); margin-right: .25rem; cursor: pointer;
+  }
+  details.bin-row { width: 100%; }
+  details.bin-row > summary {
+    list-style: none; cursor: pointer; min-height: 40px;
+    display: flex; align-items: center; gap: .4rem;
+    padding: .25rem .25rem; touch-action: manipulation;
+  }
+  details.bin-row > summary::-webkit-details-marker { display: none; }
+  details.bin-row > summary::after {
+    content: "▸"; margin-left: auto; color: var(--accent);
+    transition: transform .15s ease;
+  }
+  details.bin-row[open] > summary::after { transform: rotate(90deg); }
+
+  ul.hus { list-style: none; margin: .25rem 0 .25rem 1.6rem; padding: 0;
+            display: flex; flex-direction: column; gap: .3rem; }
+  ul.hus li { background: #f7f9fc; border: 1px solid var(--border);
+               border-radius: 8px; padding: .45rem .6rem; font-size: .9rem;
+               display: flex; gap: .55rem; align-items: center; }
+  ul.hus li .hu-check {
+    flex-shrink: 0; min-width: 24px; min-height: 24px;
+    transform: scale(1.3); cursor: pointer;
+  }
+  ul.hus li .hu-body { flex: 1; }
+  .hu-line { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
+  .hu-line .k { color: var(--muted); font-size: .72rem;
+                 text-transform: uppercase; letter-spacing: .04em; }
+  .hu-line .v { font-weight: 600; word-break: break-all; }
+
+  .notes-card label { display: block; font-size: .72rem; text-transform: uppercase;
+                       letter-spacing: .05em; color: var(--muted);
+                       margin-bottom: .25rem; }
+
+  #feeder-resume {
+    position: fixed; left: 0; right: 0; top: 0; z-index: 50;
+    background: #1f2933; color: #fff;
+    padding: .65rem .9rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    font-size: .92rem;
+    transform: translateY(-110%);
+    transition: transform .18s ease;
+    display: flex; flex-wrap: wrap; gap: .35rem .8rem; align-items: center;
+  }
+  #feeder-resume.show { transform: translateY(0); }
+  #feeder-resume .fr-label { color: #c4ccd6; font-size: .68rem;
+                              text-transform: uppercase; letter-spacing: .04em;
+                              margin-right: .3rem; }
+  #feeder-resume .fr-pill { background: #354253; border-radius: 999px;
+                             padding: .15rem .55rem; font-size: .82rem;
+                             font-weight: 600; }
+  #feeder-resume .fr-chip { background: #4b6584; border-radius: 999px;
+                             padding: .1rem .5rem; font-size: .78rem; }
+  #feeder-resume .fr-route { background: #1d4275; }
+
+  details.usage-panel { background: var(--card); border: 1px solid var(--border);
+                         border-radius: 14px; box-shadow: var(--shadow);
+                         margin-bottom: 1rem; }
+  details.usage-panel > summary {
+    list-style: none; cursor: pointer; min-height: 48px;
+    padding: .7rem 1rem; font-weight: 600; color: var(--accent);
+    display: flex; align-items: center; gap: .5rem;
+    touch-action: manipulation;
+  }
+  details.usage-panel > summary::-webkit-details-marker { display: none; }
+  details.usage-panel > summary::after { content: "▸"; margin-left: auto;
+                                         transition: transform .15s ease; }
+  details.usage-panel[open] > summary::after { transform: rotate(90deg); }
+  .usage-table-wrap { padding: 0 .25rem .5rem; overflow-x: auto; }
+  table.usage { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  table.usage th, table.usage td {
+    border-bottom: 1px solid var(--border); padding: .45rem .5rem;
+    text-align: left; vertical-align: top;
+  }
+  table.usage th { font-size: .7rem; text-transform: uppercase;
+                    letter-spacing: .04em; color: var(--muted);
+                    background: var(--tile); }
+  table.usage td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .usage-meta { padding: .25rem 1rem .65rem; font-size: .8rem;
+                color: var(--muted); }
+
+  .expl-caret { color: var(--accent); font-size: 1.05rem; display: inline-block;
+                transition: transform .15s ease; }
+  details.expl-route[open] > summary .expl-caret { transform: rotate(180deg); }
+  details.expl-group[open] > summary .expl-caret { transform: rotate(90deg); }
+{% endblock %}
+
+{% block content %}
+  <div class="part-head">
+    <h1 style="margin: 0;">{{ req.part_number }}</h1>
+    {% if part %}
+      {% if part.part_type %}
+        <span class="pill"><span class="label">Type</span>
+          <span class="val">{{ part.part_type }}</span></span>
+      {% endif %}
+      {% if part.status %}
+        <span class="pill"><span class="label">Status</span>
+          <span class="val">{{ part.status }}</span></span>
+      {% endif %}
+    {% endif %}
+    <span id="part-routes" class="part-routes"
+          style="display:none; align-items:center; gap:.3rem; flex-wrap:wrap;">
+      <span class="muted" style="font-size:.72rem; text-transform:uppercase;
+            letter-spacing:.05em;">Routes (from explosion):</span>
+    </span>
+  </div>
+  <div class="part-desc">
+    {% if part and part.description %}{{ part.description }}{% else %}<em>— no description in cc_parts —</em>{% endif %}
+  </div>
+
+  <div id="feeder-resume" aria-live="polite"></div>
+
+  <div class="muted" style="margin-bottom:1rem;">
+    Count #{{ req.id }} · Date {{ req.count_date }} ·
+    Status <span class="pill status-{{ req.status }}">{{ req.status|replace('_', ' ') }}</span>
+    {% if currency %} · Currency {{ currency }}{% endif %}
+  </div>
+
+  <div class="totals">
+    <div class="tile qoh">
+      <div class="label">QOH (system)</div>
+      <div class="val" id="t-sys" data-num>{{ total_system|plain_num }}</div>
+    </div>
+    <div class="tile">
+      <div class="label">Total contagem</div>
+      <div class="val" id="t-cnt" data-num>{{ total_counted|plain_num }}</div>
+    </div>
+    <div class="tile desvio">
+      <div class="label">Desvio (delta)</div>
+      <div class="val" id="t-delta" data-num>—</div>
+    </div>
+    <div class="tile">
+      <div class="label">Valor total desvio</div>
+      <div class="val" id="t-valor" data-num>—</div>
+    </div>
+  </div>
+
+  <form id="cnt" method="post" action="{{ url_for('cc.count_save', rid=req.id) }}">
+    {{ csrf_field() }}
+    <button type="submit" name="action" value="save"
+            tabindex="-1" aria-hidden="true"
+            style="position:absolute; width:1px; height:1px; padding:0;
+                   margin:-1px; overflow:hidden; clip:rect(0,0,0,0);
+                   border:0;"></button>
+
+    {% for e in entries %}
+      {% set sys = e.system_qty or 0 %}
+      <div class="sl-card" data-sl="{{ e.storage_location }}"
+           data-sys="{{ sys }}"
+           data-unit="{{ '' if e.unit_value is none else e.unit_value }}">
+
+        {% if e.is_manual and not readonly %}
+          <span class="delete-loc">
+            <button type="button" data-delete-sl="{{ e.storage_location }}"
+                    title="Remove this manual location">✕ remove</button>
+          </span>
+        {% endif %}
+
+        <div class="sl-header">
+          <div>
+            <div class="h-label">Storage Location
+              {% if e.is_manual %}
+                <span class="pill" style="background:#fff4e0; color:#8a5a00;
+                      font-size:.65rem; padding:.05rem .4rem;">manual</span>
+              {% endif %}
+            </div>
+            <div class="h-val">{{ e.storage_location }}{% if e.plant %}
+              <span class="muted" style="font-weight:400;">· {{ e.plant }}</span>{% endif %}</div>
+            {% if e.sl_description %}
+              <div class="sl-desc">{{ e.sl_description }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <div class="h-label">QOH (system)</div>
+            <div class="h-val">{{ sys|plain_num }}</div>
+          </div>
+          <div>
+            <div class="h-label">Contagem</div>
+            <input type="number" step="any" inputmode="decimal" class="qty" data-qty
+                   id="qty__{{ e.storage_location }}"
+                   name="qty__{{ e.storage_location }}"
+                   value="{{ e.counted_qty|plain_num }}"
+                   {% if readonly %}disabled{% endif %}>
+          </div>
+          <div>
+            <div class="h-label">Desvio</div>
+            <div class="h-val delta-zero" data-delta-cell>—</div>
+          </div>
+          <div>
+            <div class="h-label">Valor unit.</div>
+            <div class="h-val">
+              {% if e.unit_value is not none %}{{ e.unit_value|fixed(5) }}
+              {% else %}<span class="muted">—</span>{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="h-label">Valor desvio</div>
+            <div class="h-val delta-zero" data-valor-cell>—</div>
+          </div>
+        </div>
+
+        {% if e.pou_slots %}
+          <details class="pou-block"{% if e.storage_location == 'P105' %} open{% endif %}>
+            <summary>
+              <span>POU slots for this part
+                ({{ e.pou_groups|length }} POU{% if e.pou_groups|length != 1 %}s{% endif %},
+                {{ e.pou_slots|length }} slot{% if e.pou_slots|length != 1 %}s{% endif %})
+                {% if e.storage_location == 'P105' %}<span class="muted" style="font-weight:400;">
+                  — tick to add the FIFO qty to P105 count</span>{% endif %}
+              </span>
+            </summary>
+            {% for pou_id, slots in e.pou_groups %}
+              <details class="pou-group"{% if e.storage_location == 'P105' %} open{% endif %}>
+                <summary>
+                  <span><strong>POU {{ pou_id or '—' }}</strong>
+                    <span class="muted" style="font-weight:500;">
+                      — {{ slots|length }} slot{% if slots|length != 1 %}s{% endif %}
+                    </span>
+                  </span>
+                </summary>
+                <table class="pou-table">
+                  <thead>
+                    <tr>
+                      {% if e.storage_location == 'P105' %}<th style="width:40px;">✓</th>{% endif %}
+                      <th>Slot</th>
+                      <th class="num">FIFO</th>
+                      <th class="num">FIFO qty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for s in slots %}
+                      <tr class="pou-slot-row"
+                          data-pou-id="{{ '' if s.pou_id is none else s.pou_id }}"
+                          data-slot-id="{{ '' if s.slot_id is none else s.slot_id }}"
+                          data-fifo="{{ '' if s.fifo is none else s.fifo }}"
+                          data-original-fifo-qty="{{ s.fifo_qty|plain_num }}">
+                        {% if e.storage_location == 'P105' %}
+                          <td>
+                            <input type="checkbox" class="pou-confirm"
+                                   {% if readonly %}disabled{% endif %}
+                                   title="Confirm this slot exists">
+                          </td>
+                        {% endif %}
+                        <td><strong>{{ s.slot_id or '—' }}</strong></td>
+                        <td class="num">
+                          {% if s.fifo is not none %}{{ s.fifo|plain_num }}
+                          {% else %}<span class="muted">—</span>{% endif %}
+                        </td>
+                        <td class="num">
+                          {% if e.storage_location == 'P105' %}
+                            <input type="number" step="any" inputmode="decimal"
+                                   class="pou-fifoqty"
+                                   value="{{ s.fifo_qty|plain_num }}"
+                                   {% if readonly %}disabled{% endif %}
+                                   style="width:90px; min-height:36px;
+                                          text-align:right; font-weight:600;
+                                          border:1px solid var(--border);
+                                          border-radius:6px; padding:.2rem .4rem;">
+                          {% elif s.fifo_qty is not none %}{{ s.fifo_qty|plain_num }}
+                          {% else %}<span class="muted">—</span>{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </details>
+            {% endfor %}
+          </details>
+        {% endif %}
+
+        {% if e.ref_types %}
+          <details class="type-tree">
+            <summary>
+              <span>Show bins ({{ e.ref_types|length }} storage type{% if e.ref_types|length != 1 %}s{% endif %})</span>
+            </summary>
+            {% for t in e.ref_types %}
+              <details class="st-row">
+                <summary>
+                  <input type="checkbox" class="st-check"
+                         {% if readonly %}disabled{% endif %}
+                         title="Tick to count all bins of this Storage Type"
+                         onclick="event.stopPropagation();">
+                  <span>{{ t.storage_type }}{% if t.st_description %}<span class="st-desc">— {{ t.st_description }}</span>{% endif %}</span>
+                  <span class="muted" style="font-weight:500;">qty {{ t.total_qty|plain_num }}</span>
+                </summary>
+                <ul class="bins">
+                  {% for b in t.bins %}
+                    <li>
+                      <details class="bin-row">
+                        <summary>
+                          <input type="checkbox" class="bin-check"
+                                 {% if readonly %}disabled{% endif %}
+                                 title="Tick to count all HUs of this bin"
+                                 onclick="event.stopPropagation();">
+                          <span><strong>{{ b.bin }}</strong></span>
+                          <span class="muted" style="font-weight:500;">
+                            qty {{ b.total_qty|plain_num }}
+                            ({{ b.hus|length }} HU{% if b.hus|length != 1 %}s{% endif %})
+                          </span>
+                        </summary>
+                        <ul class="hus">
+                          {% for h in b.hus %}
+                            <li data-sl="{{ e.storage_location }}"
+                                data-st="{{ t.storage_type }}"
+                                data-bin="{{ b.bin }}"
+                                data-hu="{{ h.hu or '' }}"
+                                data-orig-qty="{{ (h.qty or 0)|plain_num }}">
+                              <input type="checkbox" class="hu-check"
+                                     {% if readonly %}disabled{% endif %}
+                                     title="Tick to add this HU's qty to the count">
+                              <div class="hu-body">
+                                <div class="hu-line">
+                                  <span class="k">HU</span>
+                                  <strong>{{ h.hu or '—' }}</strong>
+                                  <span class="k" style="margin-left:.5rem;">Qty</span>
+                                  <input type="number" step="any" inputmode="decimal"
+                                         class="hu-qty"
+                                         value="{{ (h.qty or 0)|plain_num }}"
+                                         {% if readonly %}disabled{% endif %}
+                                         style="width:90px; min-height:36px;
+                                                text-align:right; font-weight:600;
+                                                border:1px solid var(--border);
+                                                border-radius:6px; padding:.2rem .4rem;">
+                                  <span class="k" style="margin-left:.5rem;">Batch</span>
+                                  <span class="v">{{ h.batch or '—' }}</span>
+                                  <span class="k" style="margin-left:.5rem;">Stock Type</span>
+                                  <span class="v">{{ h.code }}</span>
+                                </div>
+                              </div>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </details>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endfor %}
+          </details>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="empty">
+        No stock locations with quantity &gt; 0 for "{{ req.part_number }}".
+        Use "Add location" below if you find stock somewhere else.
+      </p>
+    {% endfor %}
+
+    {% if machine_usage %}
+      <details class="usage-panel" open>
+        <summary>
+          <span>Machine usage (last 90 days) — counts here auto-fill P105</span>
+          <span class="muted" style="font-weight:500;">
+            {% if machine_usage.error %}lookup failed
+            {% elif machine_usage.rows %}{{ machine_usage.rows|length }} feed(s)
+            {% else %}no auto-detected feeds{% endif %}
+          </span>
+        </summary>
+
+        {% if machine_usage.error %}
+          <div class="usage-meta" style="color: var(--bad);">
+            {{ machine_usage.error }} — you can still add lines manually below.
+          </div>
+        {% elif not machine_usage.rows %}
+          <div class="usage-meta">
+            No active feeds for {{ machine_usage.queried_pn }} in the last 90 days.
+            Add lines manually below if needed.
+          </div>
+        {% endif %}
+
+        <div class="usage-table-wrap">
+          <table class="usage" id="usage-table">
+            <thead>
+              <tr>
+                <th>Line</th><th>Machine</th>
+                <th class="num">Bank</th><th class="num">Feed</th><th class="num">Track</th>
+                <th>Models</th><th>Route(s)</th><th>Last used</th>
+                <th class="num">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in machine_usage.rows %}
+                <tr class="usage-data-row"
+                    data-line="{{ u.line_name or '' }}"
+                    data-machine="{{ u.machine_name or '' }}"
+                    data-bank="{{ '' if u.bank is none else u.bank }}"
+                    data-feed="{{ '' if u.feed is none else u.feed }}"
+                    data-track="{{ '' if u.track is none else u.track }}">
+                  <td data-label="Line">{{ u.line_name }}</td>
+                  <td data-label="Machine">{{ u.machine_name }}</td>
+                  <td data-label="Bank"  class="num">{{ u.bank }}</td>
+                  <td data-label="Feed"  class="num">{{ u.feed }}</td>
+                  <td data-label="Track" class="num">{{ u.track }}</td>
+                  <td data-label="Models">
+                    {% for m in u.models %}<span class="chip">{{ m }}</span>{% endfor %}
+                  </td>
+                  <td data-label="Route(s)">
+                    {% for rt in u.routes %}<span class="chip route">{{ rt }}</span>{% endfor %}
+                    {% if not u.routes %}<span class="muted">—</span>{% endif %}
+                  </td>
+                  <td data-label="Last used">{{ u.last_used|dt }}</td>
+                  <td data-label="Count" class="num">
+                    <input type="number" step="any" inputmode="decimal"
+                           class="usage-qty" data-usage-qty
+                           {% if readonly %}disabled{% endif %}
+                           style="width: 90px; min-height: 40px;
+                                  text-align: right; font-weight: 600;">
+                  </td>
+                </tr>
+              {% endfor %}
+              <tr id="usage-totals-row">
+                <td colspan="8" style="text-align:right; font-weight:600;
+                     color:var(--muted); text-transform:uppercase;
+                     font-size:.75rem; letter-spacing:.05em;">
+                  Total → P105
+                </td>
+                <td class="num" id="usage-total"
+                    style="font-weight:700; font-size:1.05rem;">0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {% if not readonly %}
+          <div style="padding: .25rem 1rem .85rem;">
+            <button type="button" id="add-usage-line" class="btn ghost"
+                    style="min-height:42px; padding:0 .9rem;">
+              + Add line
+            </button>
+          </div>
+        {% endif %}
+        <div class="usage-meta" id="usage-info">
+          {% if machine_usage.queried_pn %}Queried as
+            <strong>{{ machine_usage.queried_pn }}</strong>{% endif %}
+          {% if machine_usage.route_file %} · routes from
+            <strong>{{ machine_usage.route_file }}</strong>{% endif %}
+          · per-row breakdown is not saved, only the total goes into P105
+        </div>
+
+        <div id="explosion-section">
+        <div style="border-top:1px solid var(--border); padding:.85rem 1rem .25rem;
+                    display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+          <strong>Parent assemblies (BOM)</strong>
+          <span class="muted" style="font-size:.85rem;">
+            count × qty/per also auto-fills P105
+          </span>
+          <button type="button" id="explosion-toggle-btn" class="btn ghost"
+                  style="margin-left:auto; min-height:42px; padding:0 .9rem;">
+            Hide explosion
+          </button>
+          {% if not readonly %}
+            <button type="button" id="explosion-load-btn" class="btn ghost"
+                    style="min-height:42px; padding:0 .9rem;">
+              Load explosion
+            </button>
+          {% endif %}
+        </div>
+
+        <div id="expl-filter"
+             style="padding:.25rem 1rem .35rem; display:flex; gap:.5rem;
+                    flex-wrap:wrap; align-items:center;">
+          <span class="h-label" style="margin:0;">Filter by reference code</span>
+          <input type="text" id="expl-ref-input"
+                 placeholder="e.g. BCE"
+                 autocomplete="off" autocapitalize="characters"
+                 style="min-height:38px; padding:.25rem .55rem; width:140px;
+                        font-size:.95rem; border:1px solid var(--border);
+                        border-radius:6px;">
+          <button type="button" id="expl-ref-add" class="btn ghost"
+                  style="min-height:38px; padding:0 .8rem;">+ Add</button>
+          <div id="expl-ref-chips"
+               style="display:inline-flex; gap:.35rem; flex-wrap:wrap;
+                      align-items:center;"></div>
+          <button type="button" id="expl-ref-clear" class="btn ghost"
+                  style="min-height:38px; padding:0 .8rem; display:none;">
+            Clear all
+          </button>
+          <span class="muted" style="font-size:.78rem;">
+            (only paths reaching a parent with that model show)
+          </span>
+        </div>
+
+        <div id="explosion-body">
+        <div id="explosion-host"
+             data-explosion-url="{{ url_for('cc.count_explosion', rid=req.id) }}"></div>
+        </div>
+        </div>
+      </details>
+    {% endif %}
+
+    <div class="card notes-card" style="margin-top:1rem;">
+      <label for="count_notes">Notes for this count (optional)</label>
+      <textarea id="count_notes" name="count_notes" rows="3"
+                placeholder="Anything relevant for this count as a whole..."
+                {% if readonly %}disabled{% endif %}>{{ req.count_notes or '' }}</textarea>
+    </div>
+  </form>
+
+  {# Outside form#cnt: nested <form>s are invalid HTML and its required
+     <select> would block saving the count. #}
+  {% if unmapped_pou_slots %}
+    <div class="sl-card unmapped-pou-card">
+      <div class="sl-header">
+        <div>
+          <div class="h-label">Storage Location
+            <span class="pill" style="background:#fde2e2; color:#8a1a1a;
+                  font-size:.65rem; padding:.05rem .4rem;">unmapped POU</span>
+          </div>
+          <div class="h-val">Unknown</div>
+          <div class="sl-desc">
+            POU(s) holding this part have no row in <code>cc_pou_storage</code>.
+            Map each one to P105 or P110 below.
+          </div>
+        </div>
+      </div>
+
+      <details class="pou-block" open>
+        <summary>
+          <span>POU slots without mapping ({{ unmapped_pou_slots|length }})</span>
+        </summary>
+        <table class="pou-table">
+          <thead>
+            <tr>
+              <th>POU</th>
+              <th>Slot</th>
+              <th class="num">FIFO</th>
+              <th class="num">FIFO qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in unmapped_pou_slots %}
+              <tr>
+                <td>{{ s.pou_id or '—' }}</td>
+                <td><strong>{{ s.slot_id or '—' }}</strong></td>
+                <td class="num">
+                  {% if s.fifo is not none %}{{ s.fifo|plain_num }}
+                  {% else %}<span class="muted">—</span>{% endif %}
+                </td>
+                <td class="num">
+                  {% if s.fifo_qty is not none %}{{ s.fifo_qty|plain_num }}
+                  {% else %}<span class="muted">—</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+
+      <div class="pou-map-list">
+        <div class="h-label" style="margin-bottom:.4rem;">Map POU → Storage Location</div>
+        {% if readonly %}
+          <div class="muted" style="font-size:.85rem;">Only the assigned counter can map POUs.</div>
+        {% else %}
+        {% for pou_id in unmapped_pou_ids %}
+          <form method="post" action="{{ url_for('cc.pou_map') }}"
+                class="pou-map-row">
+            {{ csrf_field() }}
+            <input type="hidden" name="rid" value="{{ req.id }}">
+            <input type="hidden" name="pou_id" value="{{ pou_id }}">
+            <span class="pou-map-name"><strong>{{ pou_id }}</strong></span>
+            <select name="storage_location" required>
+              <option value="">— select —</option>
+              <option value="P105">P105</option>
+              <option value="P110">P110</option>
+            </select>
+            <button type="submit" class="btn">Map</button>
+          </form>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+
+  {% if not readonly %}
+    <div class="card" style="margin-top: 1rem; background: var(--tile);">
+      <div class="h-label" style="font-size:.72rem; text-transform:uppercase;
+           letter-spacing:.05em; color:var(--muted); margin-bottom:.5rem;">
+        Found stock in a location not listed?
+        <span class="muted" style="font-weight:400; text-transform:none;
+              letter-spacing:0;">(your typed counts and notes will be saved)</span>
+      </div>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:end;">
+        <div style="flex:1; min-width:240px;">
+          <label for="add_sl" style="font-size:.72rem; text-transform:uppercase;
+                 letter-spacing:.05em; color:var(--muted);">Storage Location</label>
+          <select id="add_sl" name="add_storage_location" form="cnt">
+            <option value="">— select location —</option>
+            {% for code, desc in add_sl_options %}
+              <option value="{{ code }}">{{ code }} — {{ desc or '' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" form="cnt" name="action" value="add_location"
+                class="btn">+ Add location</button>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not readonly %}
+    <div class="btn-row" style="margin-top:1.25rem;">
+      <button type="submit" form="cnt" name="action" value="save"
+              class="btn secondary">Save progress</button>
+      <button type="submit" form="cnt" name="action" value="finish"
+              id="finish-count-btn" class="btn"
+              data-finish-button>
+        Finish count
+      </button>
+      <a class="btn ghost" href="{{ url_for('cc.dashboard') }}">Back</a>
+    </div>
+  {% else %}
+    <div class="btn-row" style="margin-top:1.25rem;">
+      <a class="btn ghost" href="{{ url_for('cc.dashboard') }}">Back</a>
+    </div>
+  {% endif %}
+
+  {% if not readonly %}
+    <input type="hidden" form="cnt" id="delete-sl-field"
+           name="delete_storage_location" value="">
+    <input type="hidden" form="cnt" id="meta-json-field"
+           name="meta_json" value="">
+  {% endif %}
+
+  <script type="application/json" id="initial-meta-data">{{ initial_meta|tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const READONLY = {{ readonly|tojson }};
+  const cards  = Array.from(document.querySelectorAll('.sl-card[data-sl]'));
+  const tCnt   = document.getElementById('t-cnt');
+  const tDelta = document.getElementById('t-delta');
+  const tSys   = document.getElementById('t-sys');
+  const tValor = document.getElementById('t-valor');
+  let initialMeta = {};
+  try {
+    initialMeta = JSON.parse(document.getElementById('initial-meta-data').textContent) || {};
+  } catch (_) { initialMeta = {}; }
+
+  // ---------- number helpers ----------
+  function num(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim().replace(',', '.');
+    if (s === '') return null;
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  }
+  function fmt(n) {
+    if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
+    return n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+  }
+  function fmtMoney(n) { return n.toFixed(2); }
+  function signed(n) {
+    if (Math.abs(n) < 1e-9) return '0';
+    return (n > 0 ? '+' : '') + fmt(n);
+  }
+  function signedMoney(n) {
+    if (Math.abs(n) < 0.005) return '0.00';
+    return (n > 0 ? '+' : '') + fmtMoney(n);
+  }
+  function classFor(n) {
+    if (n > 1e-9) return 'delta-pos';
+    if (n < -1e-9) return 'delta-neg';
+    return 'delta-zero';
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+
+  // ---------- per-location delta / value + header totals ----------
+  function recalc() {
+    let sumSys = 0, sumCnt = 0, sumValor = 0, anyValor = false;
+    cards.forEach(card => {
+      const sys  = parseFloat(card.dataset.sys) || 0;
+      const unit = card.dataset.unit === '' ? null : parseFloat(card.dataset.unit);
+      sumSys += sys;
+      const input = card.querySelector('[data-qty]');
+      const dcell = card.querySelector('[data-delta-cell]');
+      const vcell = card.querySelector('[data-valor-cell]');
+      if (!input) return;
+      const cnt = num(input.value) || 0;
+      sumCnt += cnt;
+      const d = cnt - sys;
+      dcell.textContent = signed(d);
+      dcell.className = 'h-val ' + classFor(d);
+      if (unit !== null && !isNaN(unit)) {
+        const v = d * unit;
+        sumValor += v; anyValor = true;
+        vcell.textContent = signedMoney(v);
+        vcell.className = 'h-val ' + classFor(v);
+      } else {
+        vcell.textContent = '—';
+        vcell.className = 'h-val delta-zero';
+      }
+    });
+    tSys.textContent = fmt(sumSys);
+    tCnt.textContent = fmt(sumCnt);
+    const dt = sumCnt - sumSys;
+    tDelta.replaceChildren(el('span', classFor(dt), signed(dt)));
+    tValor.replaceChildren(anyValor ? el('span', classFor(sumValor), signedMoney(sumValor)) : '—');
+  }
+
+  // ---------- sources that auto-fill a location's count ----------
+  // A count is only overwritten when the counter interacts with one of its
+  // sources (HU ticks; for P105 also feeders, explosion and POU slots).
+  // Loading the page never touches the saved value.
+  const p105Card  = document.querySelector('.sl-card[data-sl="P105"]');
+  const explCounts = new Map();   // "top\u0001part" -> {top, part, qty_per, count}
+  function explKey(top, part) { return (top || '') + '\u0001' + (part || ''); }
+
+  function huSum(card) {
+    let total = 0, has = false;
+    card.querySelectorAll('.hu-check').forEach(cb => {
+      if (!cb.checked) return;
+      has = true;
+      const q = cb.closest('li').querySelector('.hu-qty');
+      total += num(q ? q.value : null) || 0;
+    });
+    return {has, total};
+  }
+  function usageSum() {
+    let total = 0, has = false;
+    document.querySelectorAll('.usage-qty').forEach(inp => {
+      const v = num(inp.value);
+      if (v !== null) { total += v; has = true; }
+    });
+    return {has, total};
+  }
+  function explSum() {
+    let total = 0, has = false;
+    explCounts.forEach(e => {
+      const c = num(e.count), per = num(e.qty_per);
+      if (c !== null && per !== null) { total += c * per; has = true; }
+    });
+    return {has, total};
+  }
+  function pouSum() {
+    let total = 0, has = false;
+    if (!p105Card) return {has, total};
+    p105Card.querySelectorAll('.pou-slot-row').forEach(tr => {
+      const cb = tr.querySelector('.pou-confirm');
+      if (!cb || !cb.checked) return;
+      has = true;
+      const inp = tr.querySelector('.pou-fifoqty');
+      total += num(inp ? inp.value : null) || 0;
+    });
+    return {has, total};
+  }
+  function autoFill(card) {
+    if (READONLY || !card) return;
+    const input = card.querySelector('[data-qty]');
+    if (!input) return;
+    const parts = [huSum(card)];
+    if (card === p105Card) parts.push(usageSum(), explSum(), pouSum());
+    const has = parts.some(p => p.has);
+    const total = parts.reduce((a, p) => a + p.total, 0);
+    input.value = has ? fmt(total) : '';
+    recalc();
+  }
+
+  const usageTotalCell = document.getElementById('usage-total');
+  function updateSourceDisplays() {
+    if (usageTotalCell) usageTotalCell.textContent = fmt(usageSum().total);
+    document.querySelectorAll('.expl-row').forEach(tr => {
+      const cell = tr.querySelector('[data-subtotal]');
+      const saved = explCounts.get(explKey(tr.dataset.top, tr.dataset.part));
+      const c = saved ? num(saved.count) : null, per = num(tr.dataset.qtyPer);
+      if (cell) cell.textContent = (c !== null && per !== null) ? fmt(c * per) : '—';
+    });
+    const explTotal = document.getElementById('expl-total');
+    if (explTotal) explTotal.textContent = fmt(explSum().total);
+  }
+
+  // ---------- typing a count directly ----------
+  cards.forEach(card => {
+    const input = card.querySelector('[data-qty]');
+    if (input) input.addEventListener('input', recalc);
+  });
+
+  // ---------- HU / bin / storage-type tree ----------
+  function syncTreeBoxes(scope) {
+    scope.querySelectorAll('details.bin-row').forEach(bin => {
+      const cb = bin.querySelector('.bin-check'); if (!cb) return;
+      const hus = bin.querySelectorAll('.hu-check');
+      const ck = Array.from(hus).filter(c => c.checked).length;
+      cb.checked = hus.length > 0 && ck === hus.length;
+      cb.indeterminate = ck > 0 && ck < hus.length;
+    });
+    scope.querySelectorAll('details.st-row').forEach(st => {
+      const cb = st.querySelector('.st-check'); if (!cb) return;
+      const hus = st.querySelectorAll('.hu-check');
+      const ck = Array.from(hus).filter(c => c.checked).length;
+      cb.checked = hus.length > 0 && ck === hus.length;
+      cb.indeterminate = ck > 0 && ck < hus.length;
+    });
+  }
+  cards.forEach(card => {
+    card.querySelectorAll('.hu-check').forEach(cb => {
+      cb.addEventListener('change', () => { syncTreeBoxes(card); autoFill(card); });
+    });
+    card.querySelectorAll('.hu-qty').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const cb = inp.closest('li').querySelector('.hu-check');
+        if (cb && cb.checked) autoFill(card);
+      });
+    });
+    card.querySelectorAll('details.bin-row').forEach(bin => {
+      const cb = bin.querySelector('.bin-check'); if (!cb) return;
+      cb.addEventListener('change', () => {
+        bin.querySelectorAll('.hu-check').forEach(h => { h.checked = cb.checked; });
+        syncTreeBoxes(card); autoFill(card);
+      });
+    });
+    card.querySelectorAll('details.st-row').forEach(st => {
+      const cb = st.querySelector('.st-check'); if (!cb) return;
+      cb.addEventListener('change', () => {
+        st.querySelectorAll('.hu-check').forEach(h => { h.checked = cb.checked; });
+        syncTreeBoxes(card); autoFill(card);
+      });
+    });
+  });
+
+  // ---------- form / meta ----------
+  const cntForm   = document.getElementById('cnt');
+  const delField  = document.getElementById('delete-sl-field');
+  const metaField = document.getElementById('meta-json-field');
+
+  function chips(td) {
+    return td ? Array.from(td.querySelectorAll('.chip')).map(c => c.textContent.trim()).filter(Boolean) : [];
+  }
+  function collectMeta() {
+    const feeders = [];
+    document.querySelectorAll('.usage-data-row').forEach(tr => {
+      const q = tr.querySelector('.usage-qty');
+      const last = tr.querySelector('[data-label="Last used"]');
+      feeders.push({
+        line_name: tr.dataset.line || '', machine_name: tr.dataset.machine || '',
+        feed: tr.dataset.feed || '', bank: tr.dataset.bank || '', track: tr.dataset.track || '',
+        models: chips(tr.querySelector('[data-label="Models"]')),
+        routes: chips(tr.querySelector('[data-label="Route(s)"]')),
+        last_used: last ? last.textContent.trim() : '',
+        count: (q && q.value !== '') ? q.value : null, manual: false,
+      });
+    });
+    document.querySelectorAll('tr.usage-manual').forEach(tr => {
+      const txt = tr.querySelector('input[type="text"]'), q = tr.querySelector('.usage-qty');
+      feeders.push({manual: true, label: txt ? txt.value : '',
+                    count: (q && q.value !== '') ? q.value : null});
+    });
+    const explosion = [];
+    explCounts.forEach(e => {
+      const c = num(e.count), per = num(e.qty_per);
+      explosion.push({top: e.top, part: e.part, qty_per: e.qty_per, cum: e.qty_per,
+                      count: e.count,
+                      subtotal: (c !== null && per !== null) ? fmt(c * per) : ''});
+    });
+    const p105_pou = [];
+    if (p105Card) {
+      p105Card.querySelectorAll('.pou-slot-row').forEach(tr => {
+        const cb = tr.querySelector('.pou-confirm'), q = tr.querySelector('.pou-fifoqty');
+        p105_pou.push({pou_id: tr.dataset.pouId || null, slot_id: tr.dataset.slotId || null,
+                       fifo: tr.dataset.fifo || null,
+                       original_fifo_qty: tr.dataset.originalFifoQty || null,
+                       fifo_qty: q ? q.value : null, confirmed: !!(cb && cb.checked)});
+      });
+    }
+    const hus = [];
+    document.querySelectorAll('li[data-sl][data-hu]').forEach(li => {
+      const cb = li.querySelector('.hu-check'), q = li.querySelector('.hu-qty');
+      hus.push({sl: li.dataset.sl || '', st: li.dataset.st || '', bin: li.dataset.bin || '',
+                hu: li.dataset.hu || '', checked: !!(cb && cb.checked), qty: q ? q.value : ''});
+    });
+    return {feeders, explosion, p105_pou, hus};
+  }
+  function storeMeta() {
+    if (metaField) { try { metaField.value = JSON.stringify(collectMeta()); } catch (_) {} }
+  }
+  if (cntForm) cntForm.addEventListener('submit', storeMeta);
+
+  // Mapping a POU reloads the page: save the typed counts first.
+  document.querySelectorAll('form.pou-map-row').forEach(f => {
+    f.addEventListener('submit', async e => {
+      if (READONLY || !cntForm || f.dataset.saved) return;
+      e.preventDefault();
+      storeMeta();
+      try {
+        // (cntForm.action would be the <button name="action">, not the URL)
+        const res = await fetch(cntForm.getAttribute('action'), {method: 'POST', body: new FormData(cntForm),
+                                                 credentials: 'same-origin'});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+      } catch (err) {
+        if (!confirm('Could not save your counts (' + err.message + '). Map the POU anyway?')) return;
+      }
+      f.dataset.saved = '1';
+      f.submit();
+    });
+  });
+
+  document.querySelectorAll('[data-delete-sl]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Remove location ' + btn.dataset.deleteSl + ' from this count?')) return;
+      if (delField) delField.value = btn.dataset.deleteSl;
+      let actionInput = cntForm.querySelector('input[name="action"][type="hidden"]');
+      if (!actionInput) {
+        actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        cntForm.appendChild(actionInput);
+      }
+      actionInput.value = 'delete_location';
+      storeMeta();
+      cntForm.submit();
+    });
+  });
+
+  const finishBtn = document.getElementById('finish-count-btn');
+  if (finishBtn) {
+    finishBtn.addEventListener('click', e => {
+      if (!confirm('Finish this count? An email will be sent to the requester, all cycle counters and admins.')) e.preventDefault();
+    });
+  }
+
+  // ---------- machine usage (feeders) ----------
+  const usageTable     = document.getElementById('usage-table');
+  const usageTotalsRow = document.getElementById('usage-totals-row');
+  const addUsageBtn    = document.getElementById('add-usage-line');
+  const _mcs = 'padding:.4rem .35rem; border-bottom:1px solid var(--border);';
+
+  function createManualUsageRow(label, count) {
+    if (!usageTotalsRow) return null;
+    const tr = el('tr', 'usage-manual');
+    const tdText = el('td'); tdText.colSpan = 8; tdText.style.cssText = _mcs;
+    const txt = el('input'); txt.type = 'text';
+    txt.placeholder = 'Describe where this stock is (free text)';
+    txt.style.cssText = 'width:100%; min-height:40px; padding:.3rem .55rem; font-size:.95rem; border:1px solid var(--border); border-radius:6px; box-sizing:border-box;';
+    if (label != null) txt.value = label;
+    txt.disabled = READONLY;
+    tdText.appendChild(txt); tr.appendChild(tdText);
+    const tdQty = el('td', 'num'); tdQty.style.cssText = _mcs + 'white-space:nowrap;';
+    const qty = el('input', 'usage-qty');
+    qty.type = 'number'; qty.step = 'any'; qty.inputMode = 'decimal';
+    qty.style.cssText = 'width:90px; min-height:40px; text-align:right; font-weight:600; border:1px solid var(--border); border-radius:6px; padding:.3rem .4rem;';
+    if (count !== undefined && count !== null && count !== '') qty.value = count;
+    qty.disabled = READONLY;
+    tdQty.appendChild(qty);
+    if (!READONLY) {
+      const rm = el('button', null, '✕');
+      rm.type = 'button'; rm.title = 'Remove this manual line';
+      rm.style.cssText = 'background:transparent; border:none; color:var(--bad); font-size:1rem; cursor:pointer; margin-left:.35rem; min-height:36px; padding:0 .4rem;';
+      rm.addEventListener('click', () => { tr.remove(); updateSourceDisplays(); autoFill(p105Card); });
+      tdQty.appendChild(rm);
+    }
+    tr.appendChild(tdQty);
+    usageTotalsRow.parentNode.insertBefore(tr, usageTotalsRow);
+    return txt;
+  }
+  if (addUsageBtn) {
+    addUsageBtn.addEventListener('click', () => {
+      const txt = createManualUsageRow();
+      if (txt) txt.focus();
+    });
+  }
+
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.classList.contains('usage-qty')) {
+      updateSourceDisplays(); autoFill(p105Card);
+    } else if (t.classList.contains('expl-qty')) {
+      const tr = t.closest('.expl-row');
+      const key = explKey(tr.dataset.top, tr.dataset.part);
+      // A parent with several routes is listed once per route: keep the
+      // copies in sync (it is still counted once).
+      document.querySelectorAll('.expl-row').forEach(other => {
+        if (other !== tr && explKey(other.dataset.top, other.dataset.part) === key) {
+          const inp = other.querySelector('.expl-qty');
+          if (inp) inp.value = t.value;
+        }
+      });
+      if (t.value.trim() === '') explCounts.delete(key);
+      else explCounts.set(key, {top: tr.dataset.top || '', part: tr.dataset.part || '',
+                                qty_per: tr.dataset.qtyPer || '', count: t.value.trim()});
+      updateSourceDisplays(); autoFill(p105Card);
+    } else if (t.classList.contains('pou-fifoqty')) {
+      const tr = t.closest('.pou-slot-row');
+      const cb = tr ? tr.querySelector('.pou-confirm') : null;
+      if (cb && cb.checked) autoFill(p105Card);
+    }
+  });
+  document.addEventListener('change', e => {
+    if (e.target.classList.contains('pou-confirm')) autoFill(p105Card);
+  });
+
+  // Sticky bar with the feeder being typed (built with text nodes only).
+  const resumeBar = document.getElementById('feeder-resume');
+  function buildResume(tr) {
+    if (!resumeBar) return;
+    const cellText = label => {
+      const td = tr.querySelector('[data-label="' + label + '"]');
+      return td ? td.textContent.trim() : '';
+    };
+    const nodes = [];
+    const lineMach = [tr.dataset.line, tr.dataset.machine].filter(Boolean).join(' · ');
+    if (lineMach) nodes.push(el('span', 'fr-pill', lineMach));
+    [['Bank', tr.dataset.bank], ['Feed', tr.dataset.feed], ['Track', tr.dataset.track]].forEach(([k, v]) => {
+      if (v) { nodes.push(el('span', 'fr-label', k)); nodes.push(el('span', null, v)); }
+    });
+    [['Models', 'Models', 'fr-chip'], ['Route(s)', 'Route', 'fr-chip fr-route']].forEach(([lbl, title, cls]) => {
+      const vals = chips(tr.querySelector('[data-label="' + lbl + '"]'));
+      if (!vals.length) return;
+      nodes.push(el('span', 'fr-label', title));
+      const wrap = el('span');
+      vals.forEach(v => wrap.appendChild(el('span', cls, v)));
+      nodes.push(wrap);
+    });
+    const last = cellText('Last used');
+    if (last && last !== '—') { nodes.push(el('span', 'fr-label', 'Last')); nodes.push(el('span', null, last)); }
+    resumeBar.replaceChildren(...nodes);
+  }
+  document.addEventListener('focusin', e => {
+    if (!e.target.classList.contains('usage-qty')) return;
+    const tr = e.target.closest('tr.usage-data-row');
+    if (tr && resumeBar) { buildResume(tr); resumeBar.classList.add('show'); }
+  });
+  document.addEventListener('focusout', e => {
+    if (!e.target.classList.contains('usage-qty')) return;
+    setTimeout(() => {
+      const a = document.activeElement;
+      if (resumeBar && !(a && a.closest && a.closest('tr.usage-data-row'))) resumeBar.classList.remove('show');
+    }, 60);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || !e.target.classList.contains('usage-qty')) return;
+    e.preventDefault();
+    const list = Array.from(document.querySelectorAll('.usage-qty:not([disabled])'));
+    const next = list[list.indexOf(e.target) + 1];
+    if (next) { next.focus(); if (typeof next.select === 'function') next.select(); }
+    else e.target.blur();
+  });
+
+  // ---------- explosion ----------
+  const explBody    = document.getElementById('explosion-body');
+  const explToggle  = document.getElementById('explosion-toggle-btn');
+  const explLoadBtn = document.getElementById('explosion-load-btn');
+  const explHost    = document.getElementById('explosion-host');
+  const refInput    = document.getElementById('expl-ref-input');
+  const refAddBtn   = document.getElementById('expl-ref-add');
+  const refChips    = document.getElementById('expl-ref-chips');
+  const refClearBtn = document.getElementById('expl-ref-clear');
+  const partRoutesEl = document.getElementById('part-routes');
+  const EXPL_HIDE_KEY = 'cc.explosion.hidden';
+  let activeRefs = [], explLoaded = false;
+
+  function applyExplHidden(hidden) {
+    if (!explBody || !explToggle) return;
+    explBody.style.display = hidden ? 'none' : '';
+    explToggle.textContent = hidden ? 'Show explosion' : 'Hide explosion';
+  }
+  if (explToggle && explBody) {
+    let hidden = false;
+    try { hidden = localStorage.getItem(EXPL_HIDE_KEY) === '1'; } catch (_) {}
+    applyExplHidden(hidden);
+    explToggle.addEventListener('click', () => {
+      hidden = explBody.style.display !== 'none';
+      applyExplHidden(hidden);
+      try { localStorage.setItem(EXPL_HIDE_KEY, hidden ? '1' : '0'); } catch (_) {}
+    });
+  }
+
+  function updatePartRoutes() {
+    if (!partRoutesEl) return;
+    const hint = explHost && explHost.querySelector('#expl-routes-hint');
+    const routes = (hint ? (hint.dataset.routes || '') : '').split('|').map(s => s.trim()).filter(Boolean);
+    const label = partRoutesEl.firstElementChild;
+    partRoutesEl.replaceChildren(...(label ? [label] : []));
+    if (!routes.length) { partRoutesEl.style.display = 'none'; return; }
+    routes.forEach(r => partRoutesEl.appendChild(el('span', 'chip route', r)));
+    partRoutesEl.style.display = 'inline-flex';
+  }
+  function buildExplUrl() {
+    const base = explHost.dataset.explosionUrl;
+    if (!activeRefs.length) return base;
+    const q = activeRefs.map(r => 'ref=' + encodeURIComponent(r)).join('&');
+    return base + (base.indexOf('?') >= 0 ? '&' : '?') + q;
+  }
+  let explRequest = 0;
+  async function fetchExplosion(silent) {
+    if (!explHost) return;
+    const myRequest = ++explRequest;
+    if (!silent) explHost.replaceChildren(el('div', 'usage-meta', 'Loading...'));
+    try {
+      const res = await fetch(buildExplUrl(), {credentials: 'same-origin'});
+      if (res.redirected || !res.ok) throw new Error('HTTP ' + res.status);
+      const html = await res.text();
+      if (myRequest !== explRequest) return;   // a newer request is on its way
+      explHost.innerHTML = html;
+      explLoaded = true;
+      if (explLoadBtn) explLoadBtn.textContent = 'Reload explosion';
+      explHost.querySelectorAll('.expl-row').forEach(tr => {
+        const inp = tr.querySelector('.expl-qty');
+        if (inp && READONLY) inp.disabled = true;
+        const saved = explCounts.get(explKey(tr.dataset.top, tr.dataset.part));
+        if (saved) {
+          if (tr.dataset.qtyPer) saved.qty_per = tr.dataset.qtyPer;
+          if (inp) inp.value = saved.count;
+        }
+      });
+      updatePartRoutes();
+      updateSourceDisplays();
+    } catch (err) {
+      if (myRequest !== explRequest) return;
+      const box = el('div', 'usage-meta', 'Failed to load explosion: ' + err.message);
+      box.style.color = 'var(--bad)';
+      explHost.replaceChildren(box);
+    }
+  }
+  if (explLoadBtn && explHost) explLoadBtn.addEventListener('click', () => fetchExplosion(false));
+
+  function refetchIfLoaded() { if (explLoaded) fetchExplosion(true); }
+  function renderChips() {
+    if (!refChips) return;
+    refChips.replaceChildren();
+    activeRefs.forEach(r => {
+      const span = el('span', 'chip route', r);
+      span.style.cssText = 'display:inline-flex; align-items:center; gap:.2rem;';
+      const x = el('button', null, '✕');
+      x.type = 'button'; x.title = 'Remove ' + r;
+      x.style.cssText = 'background:transparent; border:0; color:inherit; cursor:pointer; font-size:.9rem; padding:0 .15rem; line-height:1; margin-left:.15rem;';
+      x.addEventListener('click', () => { activeRefs = activeRefs.filter(v => v !== r); renderChips(); refetchIfLoaded(); });
+      span.appendChild(x); refChips.appendChild(span);
+    });
+    if (refClearBtn) refClearBtn.style.display = activeRefs.length ? '' : 'none';
+  }
+  function addRefFromInput() {
+    if (!refInput) return;
+    const v = refInput.value.trim().toUpperCase(); refInput.value = '';
+    if (!v || activeRefs.indexOf(v) >= 0) return;
+    activeRefs.push(v); renderChips(); refetchIfLoaded();
+  }
+  if (refAddBtn) refAddBtn.addEventListener('click', addRefFromInput);
+  if (refInput) refInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addRefFromInput(); } });
+  if (refClearBtn) refClearBtn.addEventListener('click', () => { if (!activeRefs.length) return; activeRefs = []; renderChips(); refetchIfLoaded(); });
+
+  // ---------- restore the saved screen state (never changes counts) ----------
+  function same(a, b) { return String(a == null ? '' : a) === String(b == null ? '' : b); }
+  (initialMeta.p105_pou || []).forEach(s => {
+    if (!p105Card || !s) return;
+    const tr = Array.from(p105Card.querySelectorAll('.pou-slot-row')).find(
+      r => same(r.dataset.pouId, s.pou_id) && same(r.dataset.slotId, s.slot_id));
+    if (!tr) return;
+    const cb = tr.querySelector('.pou-confirm'), fq = tr.querySelector('.pou-fifoqty');
+    if (cb) cb.checked = !!s.confirmed;
+    if (fq && s.fifo_qty !== null && s.fifo_qty !== undefined && s.fifo_qty !== '') fq.value = s.fifo_qty;
+  });
+  (initialMeta.feeders || []).forEach(f => {
+    if (!f) return;
+    if (f.manual) { createManualUsageRow(f.label || '', f.count); return; }
+    const tr = Array.from(document.querySelectorAll('.usage-data-row')).find(r =>
+      same(r.dataset.line, f.line_name) && same(r.dataset.machine, f.machine_name)
+      && same(r.dataset.feed, f.feed) && same(r.dataset.bank, f.bank) && same(r.dataset.track, f.track));
+    const inp = tr && tr.querySelector('.usage-qty');
+    if (inp && f.count !== null && f.count !== undefined && f.count !== '') inp.value = f.count;
+  });
+  (initialMeta.hus || []).forEach(hm => {
+    if (!hm) return;
+    const li = Array.from(document.querySelectorAll('li[data-sl][data-hu]')).find(l =>
+      same(l.dataset.sl, hm.sl) && same(l.dataset.st, hm.st)
+      && same(l.dataset.bin, hm.bin) && same(l.dataset.hu, hm.hu));
+    if (!li) return;
+    const cb = li.querySelector('.hu-check'), q = li.querySelector('.hu-qty');
+    if (cb) cb.checked = !!hm.checked;
+    if (q && hm.qty !== undefined && hm.qty !== null && hm.qty !== '') q.value = hm.qty;
+  });
+  syncTreeBoxes(document);
+  (initialMeta.explosion || []).forEach(e => {
+    if (!e || e.count === null || e.count === undefined || String(e.count).trim() === '') return;
+    explCounts.set(explKey(e.top, e.part), {
+      top: e.top || '', part: e.part || '',
+      qty_per: String(e.qty_per || e.cum || ''), count: String(e.count).trim()});
+  });
+
+  recalc();
+  updateSourceDisplays();
+  if (explCounts.size && explHost) fetchExplosion(true);
+
+  if (usageTable && !p105Card) {
+    const panel = document.getElementById('usage-info');
+    if (panel) {
+      const note = el('div', null, 'Heads up: P105 is not in this count, so machine totals are not stored. Add P105 first.');
+      note.style.color = 'var(--bad)'; note.style.marginTop = '.35rem';
+      note.id = 'no-p105-note';
+      panel.appendChild(note);
+    }
+  }
+})();
+</script>
+{% endblock %}

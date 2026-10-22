@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+  <div style="max-width: 380px; margin: 3rem auto;">
+    <div class="card">
+      <h1 style="margin-top:0;">Sign in</h1>
+      <form method="post" class="stacked" autocomplete="off">
+        {{ csrf_field() }}
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autofocus
+               autocapitalize="none" autocorrect="off">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password">
+        <div class="btn-row">
+          <button type="submit" class="btn">Sign in</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

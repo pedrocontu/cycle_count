@@ -1,9 +1,0 @@
-{% extends 'cycle_count/base.html' %}
-{% block title %}Error {{ code }}{% endblock %}
-{% block content %}
-  <div class="card" style="text-align:center;">
-    <h1>{{ code }}</h1>
-    <p class="muted">{{ message }}</p>
-    <p><a class="btn ghost" href="{% url 'cycle_count:dashboard' %}">Back to dashboard</a></p>
-  </div>
-{% endblock %}
