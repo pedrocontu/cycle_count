@@ -273,7 +273,8 @@ def test_finish_count_sends_threaded_reply(as_, claimed, sql):
     assert 'POU-1' in body and 'TOP-A' in body
     text = msg.get_body(('plain',)).get_content()
     # P110 17 vs 17 ; P105 15 vs 0 → +15 × 1.5 ; P200 1 vs 3 → -2 × 2
-    assert 'TOTAL' in text and '18.5' in text
+    assert 'TOTAL' in text and '18.50' in text
+    assert '22.50' in text and '-4.00' in text      # money always with 2 decimals
     # finished → no more edits
     assert save(as_('counter1'), claimed, qty__P110='1').status_code == 409
     assert entries(sql, claimed)['P110']['counted_qty'] == 17
